@@ -1,0 +1,5 @@
+
+
+public func main(): Void {
+    log("Hello, World!");
+}
