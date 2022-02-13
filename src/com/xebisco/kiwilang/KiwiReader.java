@@ -10,7 +10,7 @@ public class KiwiReader {
     public void read(KiwiFile file) {
         ArrayList<KiwiLine> lines = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new FileReader(file.getKiwiPath().getPath()))) {
-            String line = "";
+            String line;
             int lineIndex = 0;
             while ((line = reader.readLine()) != null) {
                 lineIndex++;
@@ -30,59 +30,73 @@ public class KiwiReader {
         for (KiwiLine line : file.getRawLines()) {
             String text = line.contents;
             StringBuilder formatted = new StringBuilder();
-            boolean lastIsSpace = false, addSpace, breakLines, inQuotes = false;
+            boolean lastIsSpace = false, addSpace, breakLines, inString = false, comment = false;
             for (char c : text.toCharArray()) {
                 addSpace = false;
                 breakLines = false;
                 String s = "";
                 if (c == '\"') {
-                    inQuotes = !inQuotes;
+                    if (!comment)
+                        inString = !inString;
                 }
-                if (inQuotes) {
+                if (inString) {
                     if (c == ' ') {
                         c = '\20';
                         s = "'s'";
-                    }
-                    if (c == ',') {
+                    } else if (c == ',') {
                         c = '\20';
                         s = "'v'";
-                    }
-                }
-                if (c == ' ') {
-                    if (lastIsSpace) {
+                    } else if (c == '#') {
                         c = '\20';
+                        s = "'h'";
+                    } else if (c == ';') {
+                        c = '\20';
+                        s = "'p'";
                     }
-                    lastIsSpace = true;
+                } else {
+                    if (c == '#') {
+                        comment = true;
+                    }
+                    if (c == ' ') {
+                        if (lastIsSpace) {
+                            c = '\20';
+                        }
+                        lastIsSpace = true;
+                    }
+                    if (c == ',' || c == '(' || c == ')' || c == ':') {
+                        addSpace = true;
+                    }
+
+                    if (c == '{' || c == '}') {
+                        breakLines = true;
+                    }
                 }
-                if (c == ',' || c == '(' || c == ')' || c == ':') {
-                    addSpace = true;
+                if (!comment) {
+                    if (breakLines) {
+                        formatted.append(";");
+                    }
+
+                    if (addSpace) {
+                        if (lastIsSpace)
+                            addSpace = false;
+                        if (addSpace)
+                            formatted.append(" ");
+                    }
+                    if (c != '\20')
+                        formatted.append(c);
+                    formatted.append(s);
+                    if (c != ' ' && c != '\20') {
+                        lastIsSpace = false;
+                    }
+                    if (addSpace) {
+                        lastIsSpace = true;
+                        formatted.append(" ");
+                    }
+                    if (breakLines) {
+                        formatted.append(";");
+                    }
                 }
 
-                if (c == '{' || c == '}') {
-                    breakLines = true;
-                }
-                if (breakLines) {
-                    formatted.append(";");
-                }
-                if (addSpace) {
-                    if (lastIsSpace)
-                        addSpace = false;
-                    if (addSpace)
-                        formatted.append(" ");
-                }
-                if (c != '\20')
-                    formatted.append(c);
-                formatted.append(s);
-                if (c != ' ' && c != '\20') {
-                    lastIsSpace = false;
-                }
-                if (addSpace) {
-                    lastIsSpace = true;
-                    formatted.append(" ");
-                }
-                if (breakLines) {
-                    formatted.append(";");
-                }
             }
             String[] lns = formatted.toString().split(";");
             for (String s : lns) {

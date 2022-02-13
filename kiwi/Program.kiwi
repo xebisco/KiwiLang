@@ -1,5 +1,5 @@
+#library kiwi/io/Console.klib
 
-
-public func main(): Void {
-    log("Hello, World!");
+func main(): void {
+    log("Hello, World!")
 }

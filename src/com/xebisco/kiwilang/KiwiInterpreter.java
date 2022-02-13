@@ -15,7 +15,7 @@ public class KiwiInterpreter {
     }
 
     public void interpret(KiwiFile file, boolean inner) {
-        if(!inner) {
+        if (!inner) {
             KiwiGroup actGroup = null;
             ArrayList<String> groupContents = new ArrayList<>();
             int groupIndex = 1;
@@ -23,6 +23,9 @@ public class KiwiInterpreter {
                 String[] words = line.contents.split(" ");
                 if (actGroup != null) {
                     String l = line.contents;
+                    if (groupIndex == 0 && !l.contains("{")) {
+                        new KiwiSyntaxError("'{' expected", line.number, file.getRawLines()[line.number - 1].contents);
+                    }
                     if (l.contains("{")) {
                         groupIndex++;
                         if (groupIndex == 1)
@@ -37,7 +40,7 @@ public class KiwiInterpreter {
                             if (actGroup.arguments[2].hashCode() == "func".hashCode()) {
                                 if (actGroup.arguments[2].equals("func")) {
                                     String[] sa = actGroup.first.split(" ");
-                                    String fName = "";
+                                    String fName = "", fType = "void";
                                     for (int i = 0; i < sa.length; i++) {
                                         String s = sa[i];
                                         if (s.hashCode() == "(".hashCode()) {
@@ -46,16 +49,41 @@ public class KiwiInterpreter {
                                             }
                                         }
                                     }
+                                    for (int i = 0; i < sa.length; i++) {
+                                        String s = sa[i];
+                                        if (s.hashCode() == ":".hashCode()) {
+                                            if (s.equals(":")) {
+                                                fType = sa[i + 1];
+                                            }
+                                        }
+                                    }
                                     String[] argumentsTypes;
                                     KiwiFunction function = new KiwiFunction();
                                     function.contents = actGroup.contents;
                                     function.first = fName;
+                                    function.line = actGroup.line;
+                                    try {
+                                        function.type = KiwiPrimitiveType.valueOf("t_" + fType);
+                                    } catch (IllegalArgumentException e) {
+                                        new KiwiSyntaxError("'" + fType + "' isn't a primitive type", function.line, file.getRawLines()[function.line - 1].contents);
+                                    }
+                                    boolean isStatic = false;
+                                    if (actGroup.arguments[1].hashCode() == "static".hashCode()) {
+                                        if (actGroup.arguments[1].equals("static")) {
+                                            isStatic = true;
+                                            new KiwiSyntaxError("static modifier is not recommended on first class functions", function.line, file.getRawLines()[function.line - 1].contents);
+                                        }
+                                    }
+
                                     if (actGroup.arguments[0].hashCode() == "public".hashCode()) {
                                         if (actGroup.arguments[0].equals("public")) {
                                             runtime.getPublicFunctions().add(function);
                                         }
                                     } else if (actGroup.arguments[0].hashCode() == "private".hashCode()) {
                                         if (actGroup.arguments[0].equals("private")) {
+                                            if (isStatic) {
+                                                new KiwiSyntaxError("static function can't be private", function.line, file.getRawLines()[function.line - 1].contents);
+                                            }
                                             runtime.getPrivateFunctions().add(function);
                                         }
                                     }
@@ -92,15 +120,17 @@ public class KiwiInterpreter {
                     boolean validKeyword = Arrays.stream(groupKeywords).anyMatch(s -> s.hashCode() == keyword.hashCode() && s.equals(keyword));
 
                     if (!validKeyword)
-                        new KiwiSyntaxError(keyword + " is a invalid keyword.", line.number, file.getRawLines()[line.number - 1].contents);
+                        new KiwiSyntaxError(keyword + " isn't a invalid keyword", line.number, file.getRawLines()[line.number - 1].contents);
                     actGroup = new KiwiGroup();
                     actGroup.arguments = new String[]{firstMod, secMod, keyword};
-                    actGroup.argument = secMod;
+                    actGroup.line = line.number;
                     groupContents.clear();
                     groupIndex = 0;
                     actGroup.first = line.contents;
                 }
             }
+            if (actGroup != null)
+                    new KiwiSyntaxError("'}' expected", actGroup.line + groupContents.size(), file.getRawLines()[actGroup.line + groupContents.size() - 1].contents);
         }
 
     }
